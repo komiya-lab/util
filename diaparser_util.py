@@ -1,6 +1,9 @@
 import typer
 import re
+import os
+import glob
 import json
+import shutil
 
 app = typer.Typer()
 
@@ -18,12 +21,13 @@ def scores(logfile: str):
 
     with open(logfile) as f:
         data = list()
-        r = dict()
+        r = None
         ptn = epoch_ptn
         for line in f:
             m = ptn.match(line)
             if m is not None:
                 if ptn == epoch_ptn:
+                    r = dict()
                     r["epoch"] = int(m.group(1))
                     r["num_epochs"] = int(m.group(2))
                     ptn = dev_ptn
@@ -43,6 +47,24 @@ def scores(logfile: str):
                     data.append(r)
                     ptn = epoch_ptn
     print(json.dumps(data, indent=True))
+
+
+@app.command()
+def dcp(basedir: str, source: str, target: str):
+    basepath = os.path.abspath(basedir)
+    if not os.path.exists(target):
+        os.makedirs(target)
+    for fname in glob.glob(os.path.join(basedir, source)):
+        fpath = os.path.abspath(fname)
+        relpath = fpath.removeprefix(basepath)
+        if relpath.startswith("/"):
+            relpath = relpath[1:]
+        tpath = os.path.join(target, relpath)
+        tdir = os.path.dirname(tpath)
+        if not os.path.exists(tdir):
+            os.makedirs(tdir)
+        print(fpath, relpath, target, tpath)
+        shutil.copyfile(fpath, tpath)
 
 
 if __name__ == "__main__":
