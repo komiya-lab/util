@@ -1,0 +1,4 @@
+typer
+lxml
+spacy
+beautifulsoup4
