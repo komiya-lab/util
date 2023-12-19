@@ -4,6 +4,7 @@ import os
 import glob
 import json
 import shutil
+import unidic2ud
 
 app = typer.Typer()
 
@@ -65,6 +66,44 @@ def dcp(basedir: str, source: str, target: str):
             os.makedirs(tdir)
         print(fpath, relpath, target, tpath)
         shutil.copyfile(fpath, tpath)
+
+def to_str(v):
+    if v is None:
+        return "_"
+    return str(v)
+
+@app.command()
+def parseja(text: str, model: str="ja_gsd.mbert", dic: str="kindai"):
+    from diaparser.parsers import Parser
+    parser = Parser.load(model)
+    nlp = unidic2ud.load(dic)
+    sentence = nlp(text)
+    tokens = [t.form for t in sentence]
+    dataset = parser.predict([tokens[1:]], prob=True)
+
+    print(f"# text = {text}")
+    for t, u in zip(sentence[1:], dataset.sentences[0].to_tokens()):
+        line = [t.id, t.form, t.lemma, t.upos, t.xpos, t.feats, u["head"], u["deprel"], t.deps, t.misc]
+        line = [to_str(s) for s in line]
+        print("\t".join(line))
+    print()
+
+@app.command()
+def parseconllu(conllufile: str, model: str="ja_gsd.mbert", dic: str="kindai"):
+    from conllu import parse_incr
+    from diaparser.parsers import Parser
+    parser = Parser.load(model)
+
+    with open(conllufile) as f:
+        for tokenlist in parse_incr(f):
+            tokens = [t["form"] for t in tokenlist]
+            dataset = parser.predict([tokens], prob=True)
+            print(f"# text = {tokenlist.metadata['text']}")
+            for t, u in zip(tokenlist, dataset.sentences[0].to_tokens()):
+                line = [t["id"], t["form"], t["lemma"], t["upos"], t["xpos"], t["feats"], u["head"], u["deprel"], t["deps"], ",".join([f"{k}={v}" for k, v in t["misc"].items()])]
+                line = [to_str(s) for s in line]
+                print("\t".join(line))
+            print()
 
 
 if __name__ == "__main__":
